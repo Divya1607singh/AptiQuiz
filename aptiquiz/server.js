@@ -21,6 +21,7 @@ let questions = JSON.parse(fs.readFileSync(QUESTIONS_FILE, 'utf8'));
 let store = loadStore();
 const rooms = new Map();
 const socketPlayer = new Map();
+const socketHost = new Map();
 const timers = new Map();
 function loadStore() {
   try { return JSON.parse(fs.readFileSync(STORE_FILE, 'utf8')); }
@@ -55,25 +56,25 @@ function sortedPlayers(room) {
 function leaderboard(room) {
   return sortedPlayers(room).map((p, i) => ({ id: p.id, name: p.name, college: p.college, score: p.score, rank: i + 1, answered: p.answeredCount, correct: p.correctCount }));
 }
-function snapshot(room, player) {
-  const base = { code: room.code, status: room.status, hostId: room.hostId, players: [...room.players.values()].map(p => ({ id: p.id, name: p.name, college: p.college, score: p.score, connected: p.connected })), leaderboard: leaderboard(room), questionNumber: room.questionIndex + 1, totalQuestions: room.questionIds.length, secondsPerQuestion: room.secondsPerQuestion };
+function snapshot(room, player, isHost = false) {
+  const base = { code: room.code, status: room.status, hostId: room.hostId, isHost, hostName: room.hostName, hostToken: isHost ? room.hostToken : undefined, players: [...room.players.values()].map(p => ({ id: p.id, name: p.name, college: p.college, score: p.score, connected: p.connected })), leaderboard: leaderboard(room), questionNumber: room.questionIndex + 1, totalQuestions: room.questionIds.length, secondsPerQuestion: room.secondsPerQuestion };
   if (room.status === 'playing' && room.currentQuestion) {
     const q = questions.find(x => x.id === room.currentQuestion);
-    base.question = player ? publicQuestion(q, player) : { text: q.text, topic: q.topic, difficulty: q.difficulty };
+    if (q) base.question = player ? publicQuestion(q, player) : { text: q.text, topic: q.topic, difficulty: q.difficulty };
     base.deadline = room.deadline;
     base.answered = player ? player.answeredCurrent : false;
   }
-  if (room.status === 'reveal' && room.currentQuestion) {
-    const q = questions.find(x => x.id === room.currentQuestion);
-    base.reveal = { question: q.text, correctAnswer: q.options[q.answerIndex], explanation: q.explanation || '', topic: q.topic, scores: leaderboard(room) };
+  if (room.status === 'finished') {
+    base.results = resultsFor(room);
+    base.answerReview = room.answerReview || [];
   }
-  if (room.status === 'finished') base.results = resultsFor(room);
   return base;
 }
 function emitRoom(room, event = 'room:update') {
   for (const p of room.players.values()) {
     if (p.socketId && p.connected) io.to(p.socketId).emit(event, snapshot(room, p));
   }
+  if (room.hostSocketId) io.to(room.hostSocketId).emit(event, snapshot(room, null, true));
   io.to(`spectator:${room.code}`).emit(event, snapshot(room, null));
 }
 function stopTimer(code) { if (timers.has(code)) clearTimeout(timers.get(code)); timers.delete(code); }
@@ -95,12 +96,15 @@ function updateLeague(room) {
   saveStore();
 }
 function finishRoom(room) {
-  stopTimer(room.code); room.status = 'finished'; room.deadline = null; updateLeague(room); emitRoom(room); io.to(room.code).emit('game:finished', snapshot(room, null));
+  stopTimer(room.code); room.status = 'finished'; room.deadline = null; updateLeague(room); emitRoom(room);
+  for (const p of room.players.values()) if (p.socketId && p.connected) io.to(p.socketId).emit('game:finished', snapshot(room, p));
+  if (room.hostSocketId) io.to(room.hostSocketId).emit('game:finished', snapshot(room, null, true));
 }
 function revealQuestion(room) {
   if (room.status !== 'playing') return;
-  stopTimer(room.code); room.status = 'reveal'; room.deadline = null;
+  stopTimer(room.code);
   const q = questions.find(x => x.id === room.currentQuestion);
+  if (!q) { room.status = 'finished'; return finishRoom(room); }
   for (const p of room.players.values()) {
     if (p.answeredCurrent && p.currentAnswerOriginal === q.answerIndex) {
       p.correctCount++;
@@ -110,9 +114,9 @@ function revealQuestion(room) {
     }
     if (p.answeredCurrent) { p.answeredCount++; p.totalAnswerMs += p.currentAnswerMs; p.topicStats[q.topic] ||= { correct: 0, answered: 0 }; p.topicStats[q.topic].answered++; }
   }
-  room.lastReveal = { correctAnswer: q.options[q.answerIndex] };
-  emitRoom(room);
-  timers.set(room.code, setTimeout(() => nextQuestion(room), 4500));
+  room.answerReview.push({ number: room.questionIndex + 1, question: q.text, options: q.options, correctAnswer: q.options[q.answerIndex], explanation: q.explanation || '', topic: q.topic });
+  // Keep answers hidden during the quiz. Move straight to the next question once everyone has answered.
+  nextQuestion(room);
 }
 function startQuestion(room) {
   stopTimer(room.code);
@@ -150,13 +154,19 @@ app.get('/api/health', (_req,res) => res.json({ ok:true, rooms:rooms.size, quest
 io.on('connection', socket => {
   socket.emit('app:ready', { maxPlayers: MAX_PLAYERS });
   socket.on('host:create', (data = {}) => {
-    const hostName = safeName(data.name || 'Host'); const college = safeName(data.college || 'Independent');
+    const hostName = safeName(data.name || 'Teacher');
     const requested = Array.isArray(data.questionIds) ? data.questionIds.filter(id => questions.some(q => q.id === id)) : questions.map(q => q.id);
     if (!requested.length) return error(socket, 'Choose at least one valid question.');
-    const code = roomCode(); const hostId = crypto.randomUUID();
-    const host = makePlayer({ id:hostId, name:hostName, college, socketId:socket.id, isHost:true });
-    const room = { code, hostId, players:new Map([[hostId,host]]), questionIds:requested, questionIndex:0, currentQuestion:null, status:'lobby', deadline:null, secondsPerQuestion:Math.max(5,Math.min(60,Number(data.secondsPerQuestion)||DEFAULT_SECONDS)), createdAt:Date.now() };
-    rooms.set(code, room); socketPlayer.set(socket.id,{code,playerId:hostId}); socket.join(code); socket.emit('host:created', snapshot(room,host)); emitRoom(room);
+    const code = roomCode(); const hostId = crypto.randomUUID(); const hostToken = crypto.randomUUID();
+    const room = { code, hostId, hostName, hostToken, hostSocketId:socket.id, players:new Map(), questionIds:requested, questionIndex:0, currentQuestion:null, status:'lobby', deadline:null, answerReview:[], secondsPerQuestion:Math.max(5,Math.min(60,Number(data.secondsPerQuestion)||DEFAULT_SECONDS)), createdAt:Date.now() };
+    rooms.set(code, room); socketHost.set(socket.id, code); socket.join(code); socket.emit('host:created', snapshot(room, null, true)); emitRoom(room);
+  });
+  socket.on('host:resume', (data = {}) => {
+    const code = safeName(data.code, 5).toUpperCase(); const room = rooms.get(code);
+    if (!room || !data.hostToken || data.hostToken !== room.hostToken) return error(socket, 'Teacher room could not be restored. Please create a new room.');
+    if (room.hostSocketId) socketHost.delete(room.hostSocketId);
+    room.hostSocketId = socket.id; socketHost.set(socket.id, code); socket.join(code);
+    socket.emit('host:created', snapshot(room, null, true)); emitRoom(room);
   });
   socket.on('player:join', (data = {}) => {
     const code = safeName(data.code,5).toUpperCase(); const name = safeName(data.name); const college = safeName(data.college || 'Independent');
@@ -173,11 +183,23 @@ io.on('connection', socket => {
     if (existing) return error(socket,'That name is already being used in this room. Choose another name.');
     const player = makePlayer({id:crypto.randomUUID(),name,college,socketId:socket.id,isHost:false}); room.players.set(player.id,player); socketPlayer.set(socket.id,{code,playerId:player.id}); socket.join(code); socket.emit('player:joined',snapshot(room,player)); emitRoom(room);
   });
+  socket.on('host:leave', (data = {}) => {
+    const code = safeName(data.code, 5).toUpperCase(); const room = rooms.get(code);
+    if (room && room.hostSocketId === socket.id && data.hostToken === room.hostToken) room.hostSocketId = null;
+    socketHost.delete(socket.id); socket.leave(code);
+  });
+  socket.on('room:leave', () => {
+    const ref = socketPlayer.get(socket.id); socketPlayer.delete(socket.id);
+    if (!ref) return;
+    const room = rooms.get(ref.code); const player = room?.players.get(ref.playerId);
+    if (player) { player.connected = false; player.socketId = null; emitRoom(room); }
+    socket.leave(ref.code);
+  });
   socket.on('game:start', () => {
-    const ref = socketPlayer.get(socket.id); const room = ref && rooms.get(ref.code);
-    if (!room || room.hostId !== ref.playerId) return error(socket,'Only the host can start the game.');
+    const code = socketHost.get(socket.id); const room = code && rooms.get(code);
+    if (!room || room.hostSocketId !== socket.id) return error(socket,'Only the teacher who created this room can start the game.');
     if (room.status !== 'lobby') return error(socket,'The game has already started.');
-    if (room.players.size < 1) return error(socket,'At least one player is required.');
+    if (room.players.size < 1) return error(socket,'At least one student must join before the quiz starts.');
     startQuestion(room);
   });
   socket.on('answer:submit', data => {
@@ -205,11 +227,14 @@ io.on('connection', socket => {
   });
   socket.on('spectator:join', data => { const code=safeName(data.code,5).toUpperCase(); const room=rooms.get(code); if(!room)return error(socket,'Room code not found.'); socket.join(`spectator:${code}`); socket.emit('room:update',snapshot(room,null)); });
   socket.on('disconnect', () => {
+    const hostCode = socketHost.get(socket.id);
+    if (hostCode) { const hostRoom = rooms.get(hostCode); if (hostRoom?.hostSocketId === socket.id) hostRoom.hostSocketId = null; socketHost.delete(socket.id); }
     const ref=socketPlayer.get(socket.id); socketPlayer.delete(socket.id); if(!ref)return;
     const room=rooms.get(ref.code); const player=room?.players.get(ref.playerId); if(!player)return;
     player.connected=false; player.socketId=null; emitRoom(room);
-    // Keep disconnected players and scores for the life of the room so refresh/network loss can recover.
+    // Keep disconnected students and scores for the life of the room so refresh/network loss can recover.
   });
 });
 function makePlayer({id,name,college,socketId,isHost}) { return {id,name,college,socketId,isHost,connected:true,score:0,answeredCount:0,correctCount:0,totalAnswerMs:0,answeredCurrent:false,currentAnswerMs:null,currentAnswerOriginal:null,optionMap:null,topicStats:{}}; }
 server.listen(PORT, () => console.log(`AptiQuiz running at http://localhost:${PORT}`));
+
