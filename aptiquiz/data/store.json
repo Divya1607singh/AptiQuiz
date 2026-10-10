@@ -1,0 +1,33 @@
+{
+  "players": {
+    "host|niet": {
+      "name": "Host",
+      "college": "NIET",
+      "points": 0,
+      "games": 1,
+      "wins": 0,
+      "correct": 0,
+      "answered": 1
+    },
+    "divya|niet": {
+      "name": "Divya",
+      "college": "NIET",
+      "points": 1331,
+      "games": 1,
+      "wins": 1,
+      "correct": 2,
+      "answered": 7
+    }
+  },
+  "colleges": {
+    "niet": {
+      "name": "NIET",
+      "points": 1331,
+      "games": 2,
+      "players": {
+        "Host": 0,
+        "Divya": 1331
+      }
+    }
+  }
+}
