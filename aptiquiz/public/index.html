@@ -1,15 +1,395 @@
+```html
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111827"><title>AptiQuiz — Play smarter together</title><link rel="stylesheet" href="styles.css"></head>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#111827">
+    <title>AptiQuiz — Play smarter together</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
 <body>
-<header class="topbar"><a class="brand" href="#"><span class="brand-icon">A</span> AptiQuiz</a><nav><button class="nav-link active" data-page="play">Play</button><button class="nav-link" data-page="author">Question studio</button><button class="nav-link" data-page="league">College league</button></nav><span class="live-pill"><i></i> Live multiplayer</span></header>
+
+<header class="topbar">
+    <a class="brand" href="#">
+        <span class="brand-icon">A</span> AptiQuiz
+    </a>
+
+    <nav>
+        <button class="nav-link active" data-page="play">Play</button>
+        <button class="nav-link" data-page="author">Question studio</button>
+        <button class="nav-link" data-page="league">College league</button>
+    </nav>
+
+    <span class="live-pill"><i></i> Live multiplayer</span>
+</header>
+
 <main class="container">
-<section id="page-play" class="page active">
-  <div class="hero"><div><p class="eyebrow">THINK FAST. PLAY FAIR. CLIMB TO THE TOP.</p><h1>A little pressure.<br><span>A lot of progress.</span></h1><p class="hero-copy">Turn placement aptitude practice into a live game. Challenge your friends, sharpen your speed, and see where you stand.</p><div class="hero-stats"><div><strong>50</strong><small>players per room</small></div><div><strong>4</strong><small>practice topics</small></div><div><strong>∞</strong><small>ways to improve</small></div></div></div><div class="hero-art"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="trophy">🏆</div><div class="float-card float-a"><b>+850</b><small>Fast answer!</small></div><div class="float-card float-b"><span>↗</span><b>Rank #2</b><small>Moving up</small></div><div class="hero-dot dot-a"></div><div class="hero-dot dot-b"></div></div></div>
-  <div id="lobby-home" class="action-grid"><article class="panel action-card"><div class="action-icon purple">＋</div><h2>Teacher: Create a quiz</h2><p>Create the room, choose questions and timer, then share the code. Teachers do not take the quiz.</p><form id="host-form"><label>Teacher name<input id="host-name" maxlength="28" placeholder="e.g. Teacher" required value="Teacher"></label><label>Seconds per question<select id="seconds"><option value="10">10 seconds — sprint</option><option value="15" selected>15 seconds — standard</option><option value="20">20 seconds — relaxed</option><option value="30">30 seconds — learning mode</option></select></label><label>Question set<select id="question-set"><option value="all">All available questions</option></select></label><button class="btn primary full" type="submit">Create room <span>→</span></button></form></article>
-  <article class="panel action-card"><div class="action-icon mint">↗</div><h2>Student: Join a quiz</h2><p>Enter the teacher’s room code and take the timed quiz.</p><form id="join-form"><label>Your display name<input id="join-name" maxlength="28" placeholder="e.g. Divya" required></label><label>College<input id="join-college" maxlength="60" placeholder="College name" value="NIET"></label><label>Room code<input id="join-code" maxlength="5" placeholder="ABCDE" required class="code-input"></label><button class="btn dark full" type="submit">Join room <span>→</span></button></form><div class="microcopy">No account needed for the demo. Use a unique name in each room.</div></article></div>
-  <section id="game-area" class="panel game-panel hidden"></section>
-</section>
-<section id="page-author" class="page"><div class="section-heading"><div><p class="eyebrow">BUILD YOUR OWN SET</p><h1>Question studio</h1><p>Create, edit and reuse questions for your next room.</p></div><button id="new-question" class="btn primary">＋ New question</button></div><div class="author-layout"><form id="question-form" class="panel question-editor hidden"><h2 id="editor-title">New question</h2><input type="hidden" id="q-id"><label>Question text<textarea id="q-text" rows="3" maxlength="500" required placeholder="Write a clear question..."></textarea></label><div class="options-editor"><label>Option A<input id="opt-0" required maxlength="200"></label><label>Option B<input id="opt-1" required maxlength="200"></label><label>Option C<input id="opt-2" maxlength="200"></label><label>Option D<input id="opt-3" maxlength="200"></label></div><label>Correct answer<select id="q-answer"><option value="0">Option A</option><option value="1">Option B</option><option value="2">Option C</option><option value="3">Option D</option></select></label><div class="form-row"><label>Topic<select id="q-topic"><option>Quantitative</option><option>Logical</option><option>Verbal</option><option>Data Interpretation</option><option>General</option></select></label><label>Difficulty<select id="q-difficulty"><option>Easy</option><option>Medium</option><option>Hard</option></select></label></div><label>Explanation (shown after the round)<textarea id="q-explanation" rows="2" maxlength="500"></textarea></label><div class="button-row"><button type="submit" class="btn primary">Save question</button><button type="button" id="cancel-edit" class="btn light">Cancel</button></div></form><div class="panel question-list-panel"><div class="list-header"><h2>Question bank</h2><span id="question-count" class="count-pill">0 questions</span></div><p class="muted">Use ↑ and ↓ to change order. Saved questions are available to all hosts.</p><div id="question-list" class="question-list"></div></div></div></section>
-<section id="page-league" class="page"><div class="section-heading"><div><p class="eyebrow">CAMPUS COMPETITION</p><h1>College league</h1><p>Scores from completed rooms contribute to the all-time league on this server.</p></div><button id="refresh-league" class="btn light">↻ Refresh</button></div><div class="league-grid"><article class="panel"><div class="list-header"><h2>🏅 Top colleges</h2><span class="count-pill">By points</span></div><div id="college-league" class="league-list"></div></article><article class="panel"><div class="list-header"><h2>⚡ Top players</h2><span class="count-pill">By points</span></div><div id="player-league" class="league-list"></div></article></div><p class="footnote">League records are stored locally in <code>data/store.json</code>. This starter project uses a shared demo leaderboard, not a verified identity system.</p></section>
-</main><div id="toast" class="toast" role="status"></div><footer>Built for practice, powered by friendly competition. <span>Server-authoritative scoring · Reconnect-ready · Up to 50 players</span></footer><script src="/socket.io/socket.io.js"></script><script src="app.js"></script></body></html>
+
+    <!-- PLAY PAGE -->
+    <section id="page-play" class="page active">
+
+        <div class="hero">
+            <div>
+                <p class="eyebrow">
+                    THINK FAST. PLAY FAIR. CLIMB TO THE TOP.
+                </p>
+
+                <h1>
+                    A little pressure.<br>
+                    <span>A lot of progress.</span>
+                </h1>
+
+                <p class="hero-copy">
+                    Turn placement aptitude practice into a live game.
+                    Challenge your friends, sharpen your speed,
+                    and see where you stand.
+                </p>
+
+                <div class="hero-stats">
+                    <div>
+                        <strong>50</strong>
+                        <small>players per room</small>
+                    </div>
+                    <div>
+                        <strong>4</strong>
+                        <small>practice topics</small>
+                    </div>
+                    <div>
+                        <strong>∞</strong>
+                        <small>ways to improve</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hero-art">
+                <div class="orbit orbit-one"></div>
+                <div class="orbit orbit-two"></div>
+                <div class="trophy">🏆</div>
+
+                <div class="float-card float-a">
+                    <b>+850</b>
+                    <small>Fast answer!</small>
+                </div>
+
+                <div class="float-card float-b">
+                    <span>↗</span>
+                    <b>Rank #2</b>
+                    <small>Moving up</small>
+                </div>
+
+                <div class="hero-dot dot-a"></div>
+                <div class="hero-dot dot-b"></div>
+            </div>
+        </div>
+
+        <div id="lobby-home" class="action-grid">
+
+            <!-- TEACHER: CREATE ROOM -->
+            <article class="panel action-card">
+                <div class="action-icon purple">＋</div>
+
+                <h2>Teacher: Create a quiz</h2>
+
+                <p>
+                    Create the room, choose questions and timer,
+                    then share the code. Teachers do not take the quiz.
+                </p>
+
+                <form id="host-form">
+
+                    <label>
+                        Teacher name
+                        <input
+                            id="host-name"
+                            maxlength="28"
+                            placeholder="e.g. Teacher"
+                            required
+                            value="Teacher"
+                        >
+                    </label>
+
+                    <!-- FIX: Added the missing host-college field -->
+                    <label>
+                        College
+                        <input
+                            id="host-college"
+                            maxlength="60"
+                            placeholder="College name"
+                            value="NIET"
+                        >
+                    </label>
+
+                    <label>
+                        Seconds per question
+                        <select id="seconds">
+                            <option value="10">10 seconds — sprint</option>
+                            <option value="15" selected>15 seconds — standard</option>
+                            <option value="20">20 seconds — relaxed</option>
+                            <option value="30">30 seconds — learning mode</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        Question set
+                        <select id="question-set">
+                            <option value="all">All available questions</option>
+                        </select>
+                    </label>
+
+                    <button class="btn primary full" type="submit">
+                        Create room <span>→</span>
+                    </button>
+
+                </form>
+            </article>
+
+            <!-- STUDENT: JOIN ROOM -->
+            <article class="panel action-card">
+                <div class="action-icon mint">↗</div>
+
+                <h2>Student: Join a quiz</h2>
+
+                <p>
+                    Enter the teacher’s room code and take the timed quiz.
+                </p>
+
+                <form id="join-form">
+
+                    <label>
+                        Your display name
+                        <input
+                            id="join-name"
+                            maxlength="28"
+                            placeholder="e.g. Divya"
+                            required
+                        >
+                    </label>
+
+                    <label>
+                        College
+                        <input
+                            id="join-college"
+                            maxlength="60"
+                            placeholder="College name"
+                            value="NIET"
+                        >
+                    </label>
+
+                    <label>
+                        Room code
+                        <input
+                            id="join-code"
+                            maxlength="5"
+                            placeholder="ABCDE"
+                            required
+                            class="code-input"
+                        >
+                    </label>
+
+                    <button class="btn dark full" type="submit">
+                        Join room <span>→</span>
+                    </button>
+
+                </form>
+
+                <div class="microcopy">
+                    No account needed for the demo. Use a unique name in each room.
+                </div>
+            </article>
+
+        </div>
+
+        <section id="game-area" class="panel game-panel hidden"></section>
+
+    </section>
+
+    <!-- QUESTION STUDIO PAGE -->
+    <section id="page-author" class="page">
+
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">BUILD YOUR OWN SET</p>
+                <h1>Question studio</h1>
+                <p>Create, edit and reuse questions for your next room.</p>
+            </div>
+
+            <button id="new-question" class="btn primary">
+                ＋ New question
+            </button>
+        </div>
+
+        <div class="author-layout">
+
+            <form id="question-form" class="panel question-editor hidden">
+
+                <h2 id="editor-title">New question</h2>
+
+                <input type="hidden" id="q-id">
+
+                <label>
+                    Question text
+                    <textarea
+                        id="q-text"
+                        rows="3"
+                        maxlength="500"
+                        required
+                        placeholder="Write a clear question..."
+                    ></textarea>
+                </label>
+
+                <div class="options-editor">
+                    <label>
+                        Option A
+                        <input id="opt-0" required maxlength="200">
+                    </label>
+
+                    <label>
+                        Option B
+                        <input id="opt-1" required maxlength="200">
+                    </label>
+
+                    <label>
+                        Option C
+                        <input id="opt-2" maxlength="200">
+                    </label>
+
+                    <label>
+                        Option D
+                        <input id="opt-3" maxlength="200">
+                    </label>
+                </div>
+
+                <label>
+                    Correct answer
+                    <select id="q-answer">
+                        <option value="0">Option A</option>
+                        <option value="1">Option B</option>
+                        <option value="2">Option C</option>
+                        <option value="3">Option D</option>
+                    </select>
+                </label>
+
+                <div class="form-row">
+                    <label>
+                        Topic
+                        <select id="q-topic">
+                            <option>Quantitative</option>
+                            <option>Logical</option>
+                            <option>Verbal</option>
+                            <option>Data Interpretation</option>
+                            <option>General</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        Difficulty
+                        <select id="q-difficulty">
+                            <option>Easy</option>
+                            <option>Medium</option>
+                            <option>Hard</option>
+                        </select>
+                    </label>
+                </div>
+
+                <label>
+                    Explanation (shown after the round)
+                    <textarea
+                        id="q-explanation"
+                        rows="2"
+                        maxlength="500"
+                    ></textarea>
+                </label>
+
+                <div class="button-row">
+                    <button type="submit" class="btn primary">
+                        Save question
+                    </button>
+
+                    <button type="button" id="cancel-edit" class="btn light">
+                        Cancel
+                    </button>
+                </div>
+
+            </form>
+
+            <div class="panel question-list-panel">
+                <div class="list-header">
+                    <h2>Question bank</h2>
+                    <span id="question-count" class="count-pill">0 questions</span>
+                </div>
+
+                <p class="muted">
+                    Use ↑ and ↓ to change order. Saved questions are available to all hosts.
+                </p>
+
+                <div id="question-list" class="question-list"></div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- COLLEGE LEAGUE PAGE -->
+    <section id="page-league" class="page">
+
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">CAMPUS COMPETITION</p>
+                <h1>College league</h1>
+                <p>
+                    Scores from completed rooms contribute to the all-time league on this server.
+                </p>
+            </div>
+
+            <button id="refresh-league" class="btn light">
+                ↻ Refresh
+            </button>
+        </div>
+
+        <div class="league-grid">
+
+            <article class="panel">
+                <div class="list-header">
+                    <h2>🏅 Top colleges</h2>
+                    <span class="count-pill">By points</span>
+                </div>
+
+                <div id="college-league" class="league-list"></div>
+            </article>
+
+            <article class="panel">
+                <div class="list-header">
+                    <h2>⚡ Top players</h2>
+                    <span class="count-pill">By points</span>
+                </div>
+
+                <div id="player-league" class="league-list"></div>
+            </article>
+
+        </div>
+
+        <p class="footnote">
+            League records are stored locally in <code>data/store.json</code>.
+            This starter project uses a shared demo leaderboard,
+            not a verified identity system.
+        </p>
+
+    </section>
+
+</main>
+
+<div id="toast" class="toast" role="status"></div>
+
+<footer>
+    Built for practice, powered by friendly competition.
+    <span>
+        Server-authoritative scoring · Reconnect-ready · Up to 50 players
+    </span>
+</footer>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
+```
